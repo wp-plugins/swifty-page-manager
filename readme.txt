@@ -4,7 +4,7 @@ Donate link: http://swiftylife.com/plugins/donate/
 Tags: Swifty, page, pages, tree, menu, manage, hierarchy, structure
 Requires at least: 3.8
 Tested up to: 3.9
-Stable tag: 1.0.2
+Stable tag: 1.0.3
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -142,6 +142,9 @@ Try to describe the actions that lead up to the point where something is not wor
 Try it - it's free!
 
 == Changelog ==
+
+= 1.0.3 =
+ * Small fix for incorrect version number.
 
 = 1.0.2 =
  * Added language/translation info.
