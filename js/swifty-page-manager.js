@@ -95,7 +95,7 @@ var SPM = (function( $, document ) {
             var isCustomUrl = $li.find( 'input[name=spm_is_custom_url]' ).val();
             var path;
 
-            if ( isCustomUrl && isCustomUrl == '0' ) {
+            if ( isCustomUrl && isCustomUrl === '0' ) {
                 path = spm.generatePathToPage( $li );
 
                 setTimeout(function() {
@@ -118,7 +118,7 @@ var SPM = (function( $, document ) {
             var $li = $( this ).closest( 'li' );
             var isCustomUrl = $li.find( 'input[name=spm_is_custom_url]' ).val();
 
-            if ( isCustomUrl && isCustomUrl == '0' ) {
+            if ( isCustomUrl && isCustomUrl === '0' ) {
                 $li.find( 'input[name=spm_is_custom_url]' ).val( '1' );
             }
 
@@ -134,11 +134,11 @@ var SPM = (function( $, document ) {
                 return false;
             }
 
-            if ( isCustomUrl && isCustomUrl == '0' ) {
+            if ( isCustomUrl && isCustomUrl === '0' ) {
                 path = spm.generatePathToPage( $li );
-                url = $li.find( 'input[name=post_title]' ).val() !== ''
-                    ? $li.find( 'input[name=post_name]' ).val().replace( /.*\/(.+)$/g, '$1' )
-                    : '';
+                url = $li.find( 'input[name=post_title]' ).val() !== '' ?
+                      $li.find( 'input[name=post_name]' ).val().replace( /.*\/(.+)$/g, '$1' ) :
+                      '';
 
                 $( 'input[name=post_name]' ).val( spm.generatePageUrl( path, url ) );
             }
@@ -302,9 +302,9 @@ var SPM = (function( $, document ) {
     };
 
     spm.openTooltipHandler = function( ev ) {
-        var $toolTipBtn = $( this ).hasClass( 'spm-tooltip-button' )
-                        ? $( this )
-                        : $( this ).closest( '.spm-tooltip-button' );
+        var $toolTipBtn = $( this ).hasClass( 'spm-tooltip-button' ) ?
+                          $( this ) :
+                          $( this ).closest( '.spm-tooltip-button' );
         var $toolTipClass = '.' + $toolTipBtn.attr( 'rel' );
         var $toolTip = spm.$tooltips.filter( $toolTipClass );
 
@@ -584,6 +584,8 @@ var SPM = (function( $, document ) {
     };
 
     spm.updateStatusCount = function() {
+        var dfd = $.Deferred();
+
         $.ajax({
             'url': location.href,
             'cache': false,
@@ -607,8 +609,17 @@ var SPM = (function( $, document ) {
                 if ( $li.hasClass( 'spm-hidden' ) && statusCount === '1' && statusName !== 'any' ) {
                     $li.removeClass( 'spm-hidden' );
                 }
+
+                if ( $statusLink.hasClass( 'current' ) &&
+                     $statusLink.data( 'spm-status' ) === statusName &&
+                     statusCount === '0'
+                ) {
+                    dfd.resolve( $li.siblings().find( 'a.spm-status-any' ).attr( 'href' ) );
+                }
             });
         });
+
+        return dfd;
     };
 
     spm.getStatusCounts = function( html ) {
@@ -771,17 +782,23 @@ jQuery(function( $ ) {
                 'success': function( data /*, status*/ ) {
                     // If data is null or empty = show message about no nodes
                     if ( data === null || ! data || ! data.length ) {
-                        SPM.updateStatusCount();
+                        var dfd = SPM.updateStatusCount();
 
-                        $SPMMsg.html( '<p>' + spm_l10n.no_pages_found + '</p>' );
-                        $SPMMsg.show();
-                        $SPMAddBtn.removeClass( 'spm-hidden' );
+                        dfd.done(function( redirUrl ) {
+                            if ( redirUrl ) {
+                                window.location = redirUrl;
+                            } else {
+                                $SPMMsg.html( '<p>' + spm_l10n.no_pages_found + '</p>' );
+                                $SPMMsg.show();
+                                $SPMAddBtn.removeClass( 'spm-hidden' );
+                            }
+                        });
                     } else {
                         $SPMMsg.hide();
                         $SPMAddBtn.addClass( 'spm-hidden' );
                     }
                 },
-                'error': function( data, status ) {
+                'error': function( /*data, status*/ ) {
                 }
             }
         },
@@ -799,7 +816,7 @@ jQuery(function( $ ) {
                         return false;
                     }
 
-                    p = p == -1 ? this.get_container() : p;
+                    p = +p === -1 ? this.get_container() : p;
 
                     if ( p === m.np ) {
                         return true;
