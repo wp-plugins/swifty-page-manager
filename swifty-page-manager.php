@@ -3,7 +3,7 @@
 Plugin Name: Swifty Page Manager
 Description: Easily create, move and delete pages. Manage page settings.
 Author: SwiftyLife
-Version: 1.0.3
+Version: 1.0.4
 Author URI: http://swiftylife.com/plugins/
 Plugin URI: http://swiftylife.com/plugins/swifty-page-manager/
 */
@@ -15,7 +15,7 @@ class SwiftyPageManager
     protected $plugin_basename;
     protected $plugin_dir_url;
     protected $plugin_url;
-    protected $_plugin_version = '1.0.3';
+    protected $_plugin_version = '1.0.4';
     protected $_post_status = 'any';
     protected $_post_type = 'page';
     protected $_tree = null;
@@ -434,87 +434,32 @@ class SwiftyPageManager
         $_POST['skip_sitepress_actions'] = true; // sitepress.class.php->save_post_actions
 
         if ( $node_id && $ref_node_id ) {
-            #echo "\nnode_id: $node_id";
-            #echo "\ntype: $type";
-
             $post_node     = get_post( $node_id );
             $post_ref_node = get_post( $ref_node_id );
-
-            $show_ref_page_in_menu = get_post_meta( $ref_node_id, 'spm_show_in_menu', true );
 
             // first check that post_node (moved post) is not in trash. we do not move them
             if ( $post_node->post_status === 'trash' ) {
                 exit;
             }
 
-            if ( 'inside' === $type ) {
-                // post_node is moved inside ref_post_node
-                // add ref_post_node as parent to post_node and set post_nodes menu_order to 0
-                // @todo: shouldn't menu order of existing items be changed?
-                $post_to_save = array(
-                    'ID'          => $post_node->ID,
-                    'menu_order'  => 0,
-                    'post_parent' => $post_ref_node->ID,
-                    'post_type'   => $post_ref_node->post_type
-                );
+            $post_to_save = array(
+                'ID'          => $post_node->ID,
+                'menu_order'  => $this->_createSpaceForMove( $post_ref_node, $type ),
+                'post_parent' => ( 'inside' === $type ) ? $post_ref_node->ID : $post_ref_node->post_parent,
+                'post_type'   => $this->_post_type
+            );
 
-                $id_saved = wp_update_post( $post_to_save );
+            $id_saved = wp_update_post( $post_to_save );
 
-                if ( $id_saved && ! empty( $show_ref_page_in_menu ) && $show_ref_page_in_menu !== 'show' ) {
+            if ( 'inside' === $type && $id_saved ) {
+                $show_ref_page_in_menu = get_post_meta( $ref_node_id, 'spm_show_in_menu', true );
+
+                if ( ! empty( $show_ref_page_in_menu ) && $show_ref_page_in_menu !== 'show' ) {
                     update_post_meta( $id_saved, 'spm_show_in_menu', 'hide' );
                 }
-
-                echo 'did inside';
-            } elseif ( 'before' === $type ) {
-                // post_node is placed before ref_post_node
-                // update menu_order of all pages with a menu order more than or equal ref_node_post and with the same
-                // parent as ref_node_post we do this so there will be room for our page if it's the first page
-                // so: no move of individial posts yet
-                $wpdb->query(
-                     $wpdb->prepare( "UPDATE $wpdb->posts SET menu_order = menu_order+1 WHERE post_parent = %d",
-                                     $post_ref_node->post_parent ) );
-
-                // update menu order with +1 for all pages below ref_node, this should fix the problem with "unmovable"
-                // pages because of multiple pages with the same menu order (...which is not the fault of this plugin!)
-                $wpdb->query(
-                     $wpdb->prepare(
-                        "UPDATE $wpdb->posts SET menu_order = menu_order+1 WHERE menu_order >= %d AND post_type = %s",
-                            $post_ref_node->menu_order + 1,
-                            'page' ) );
-
-                $post_to_save = array(
-                    'ID'          => $post_node->ID,
-                    'menu_order'  => $post_ref_node->menu_order,
-                    'post_parent' => $post_ref_node->post_parent,
-                    'post_type'   => $post_ref_node->post_type
-                );
-
-                wp_update_post( $post_to_save );
-
-                echo 'did before';
-            } elseif ( 'after' === $type ) {
-                // post_node is placed after ref_post_node
-                // update menu_order of all posts with the same parent ref_post_node and with a menu_order of the same
-                // as ref_post_node, but do not include ref_post_node +2 since multiple can have same menu order and we
-                // want our moved post to have a unique "spot"
-                $wpdb->query(
-                    $wpdb->prepare(
-                        "UPDATE $wpdb->posts SET menu_order = menu_order+2 WHERE post_parent = %d AND menu_order >= %d AND id <> %d ",
-                            $post_ref_node->post_parent,
-                            $post_ref_node->menu_order,
-                            $post_ref_node->ID ) );
-
-                $post_to_save = array(
-                    'ID'          => $post_node->ID,
-                    'menu_order'  => $post_ref_node->menu_order + 1,
-                    'post_parent' => $post_ref_node->post_parent,
-                    'post_type'   => $post_ref_node->post_type
-                );
-
-                wp_update_post( $post_to_save );
-
-                echo 'did after';
             }
+
+            echo 'did ' . $type;
 
             // Store the moved page id in the jstree_select cookie
             setcookie( 'jstree_select', '#spm-id-' . $post_node->ID );
@@ -542,9 +487,9 @@ class SwiftyPageManager
         /** @var wpdb $wpdb - Wordpress Database */
         global $wpdb;
 
-        $post_id     = ! empty( $_POST['post_ID'] ) ? intval( $_POST['post_ID'] ) : null;
+        $post_id     = ! empty( $_POST['post_ID'] )    ? intval( $_POST['post_ID'] )  : null;
         $post_title  = ! empty( $_POST['post_title'] ) ? trim( $_POST['post_title'] ) : '';
-        $post_name   = ! empty( $_POST['post_name'] ) ? trim( $_POST['post_name'] ) : '';
+        $post_name   = ! empty( $_POST['post_name'] )  ? trim( $_POST['post_name'] )  : '';
         $post_status = $_POST['post_status'];
 
         if ( ! $post_title ) {
@@ -596,33 +541,14 @@ class SwiftyPageManager
             }
         }
         else {   // We're in create mode
-            $post_data['post_content'] = '';
-
             $parent_id = $_POST['parent_id'];
             $parent_id = intval( str_replace( 'spm-id-', '', $parent_id ) );
             $ref_post  = get_post( $parent_id );
+            $add_mode  = $_POST['add_mode'];
 
-            if ( 'after' === $_POST['add_mode'] ) {
-                // update menu_order of all pages below our page
-                $wpdb->query(
-                    $wpdb->prepare(
-                        "UPDATE $wpdb->posts SET menu_order = menu_order+2 WHERE post_parent = %d AND menu_order >= %d AND id <> %d ",
-                            $ref_post->post_parent,
-                            $ref_post->menu_order,
-                            $ref_post->ID ) );
-
-                // create a new page and then goto it
-                $post_data['menu_order']  = $ref_post->menu_order + 1;
-                $post_data['post_parent'] = $ref_post->post_parent;
-            } elseif ( 'inside' === $_POST['add_mode'] ) {
-                // update menu_order, so our new post is the only one with order 0
-                $wpdb->query(
-                    $wpdb->prepare( "UPDATE $wpdb->posts SET menu_order = menu_order+1 WHERE post_parent = %d",
-                        $ref_post->ID ) );
-
-                $post_data['menu_order']  = 0;
-                $post_data['post_parent'] = $ref_post->ID;
-            }
+            $post_data['post_content'] = '';
+            $post_data['menu_order']   = $this->_createSpaceForMove( $ref_post, $add_mode );
+            $post_data['post_parent']  = ( 'inside' === $add_mode ) ? $ref_post->ID :  $ref_post->post_parent;
 
             $post_id = wp_insert_post( $post_data );
             $post_id = intval( $post_id );
@@ -816,12 +742,25 @@ class SwiftyPageManager
      */
     public function get_json_data( &$branch )
     {
-        $result     = array();
-        $child_keys = array_keys( $branch->children );
+        $result   = array();
+        $children = $branch->children;
 
-        foreach ( $child_keys as $child_key ) {
-            $child = &$branch->children[ $child_key ];
+        // Sort children by menu_order and post_title
+        usort( $children, function( $a, $b ) {
+            $result = 0;
 
+            if ( isset( $a->page ) && isset( $b->page ) ) {
+                $result = $a->page->menu_order - $b->page->menu_order;
+
+                if ( 0 == $result ) {
+                    $result = strcmp( $a->page->post_title, $b->page->post_title );
+                }
+            }
+
+            return $result;
+        } );
+
+        foreach ( $children as $child ) {
             if ( isset( $child->page ) ) {
                 $new_branch = $this->_get_page_json_data( $child->page );
 
@@ -945,7 +884,7 @@ class SwiftyPageManager
         $args['post_type'] = 'page';
         $args['post_status'] = $this->get_post_status();
         $args['numberposts'] = -1;
-        $args['orderby'] = 'menu_order';
+        $args['orderby'] = 'menu_order title';
         $args['order'] = 'ASC';
         $pages = get_posts( $args );
         $added = true;
@@ -971,7 +910,7 @@ class SwiftyPageManager
                     $new_branch->page = $page;
                     $new_branch->children = array();
                     $this->_by_page_id[ $new_branch->page->ID ] = &$new_branch;
-                    $parent_branch->children[] = &$new_branch;
+                    $parent_branch->children[] = &$new_branch; // Warning, does not sort children correctly
 
                     unset( $new_branch );
                     unset( $pages[ $key ] );
@@ -1174,12 +1113,69 @@ class SwiftyPageManager
     /**
      * Return minified filename, if exists; otherwise original filename
      */
-    protected function _find_minified( $file_name ) {
+    protected function _find_minified( $file_name )
+    {
         $file_name_min = preg_replace( '|\.js$|', '.min.js', $file_name );
-        if( file_exists( $this->plugin_dir . $file_name_min ) ) {
+
+        if ( file_exists( $this->plugin_dir . $file_name_min ) ) {
             $file_name = $file_name_min;
         }
+
         return $file_name;
+    }
+
+    /**
+     * Get a menu_order space to move/insert a page
+     *
+     * @param WP_Post $ref_post
+     * @param string $direction, can be 'before','after' or 'inside'
+     */
+    protected function _createSpaceForMove( $ref_post, $direction = 'after' ) {
+        /** @var wpdb $wpdb */
+        global $wpdb;
+
+        if ( 'inside' === $direction ) {
+            $query  = $wpdb->prepare( "SELECT MAX(menu_order) FROM $wpdb->posts WHERE post_parent = %d", $ref_post->ID );
+            $result = $wpdb->get_var( $query ) + 1;
+        } else { // after or before
+            $result = $ref_post->menu_order;
+
+            if ( 'after' === $direction ) {
+                $result++;
+            }
+
+            $posts = get_posts( array(
+                'post_status'      => 'any',
+                'post_type'        => $this->_post_type,
+                'numberposts'      => -1,
+                'offset'           => 0,
+                'orderby'          => 'menu_order title',
+                'order'            => 'asc',
+                'post_parent'      => $ref_post->post_parent,
+                'suppress_filters' => false
+            ) );
+            $has_passed_ref_post = false;
+
+            foreach ( $posts as $one_post ) {
+                if ( $has_passed_ref_post or ( 'before' === $direction && $ref_post->ID === $one_post->ID ) ) {
+                    $post_update = array(
+                        'ID'         => $one_post->ID,
+                        'menu_order' => $one_post->menu_order + 2
+                    );
+                    $return_id = wp_update_post( $post_update );
+
+                    if ( 0 === $return_id ) {
+                        die( 'Error: could not update post with id ' . $post_update->ID . '<br>Technical details: ' . print_r( $post_update ) );
+                    }
+                }
+
+                if ( ! $has_passed_ref_post && $ref_post->ID === $one_post->ID ) {
+                    $has_passed_ref_post = true;
+                }
+            }
+        }
+
+        return $result;
     }
 
 } // End of class SwiftyPageManager
