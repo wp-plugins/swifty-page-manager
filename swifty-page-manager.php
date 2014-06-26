@@ -3,7 +3,7 @@
 Plugin Name: Swifty Page Manager
 Description: Easily create, move and delete pages. Manage page settings.
 Author: SwiftyLife
-Version: 1.0.4
+Version: 1.0.5
 Author URI: http://swiftylife.com/plugins/
 Plugin URI: http://swiftylife.com/plugins/swifty-page-manager/
 */
@@ -15,12 +15,12 @@ class SwiftyPageManager
     protected $plugin_basename;
     protected $plugin_dir_url;
     protected $plugin_url;
-    protected $_plugin_version = '1.0.4';
+    protected $_plugin_version = '1.0.5';
     protected $_post_status = 'any';
     protected $_post_type = 'page';
     protected $_tree = null;
     protected $_by_page_id = null;
-    protected $is_swifty = false; // Will be enabled in our future ecosystem of extensions.
+    protected $is_swifty = false;
 
     /**
      * Constructor
@@ -32,6 +32,7 @@ class SwiftyPageManager
         $this->plugin_basename = basename( $this->plugin_dir );
         $this->plugin_dir_url  = plugins_url( rawurlencode( basename( $this->plugin_dir ) ) );
         $this->plugin_url      = $_SERVER['REQUEST_URI'];
+        $this->is_swifty       = $this->_is_plugin_minimal( 'swifty-menu/*', '0.0.3' );
 
         // Actions for visitors viewing the site
         if ( $this->is_swifty ) {
@@ -180,7 +181,13 @@ class SwiftyPageManager
             $post_id = $wpdb->get_var( $query );
 
             if ( $post_id ) {
-                $wp->query_vars = array( 'p' => $post_id, 'post_type' => 'page' );
+                if  ( 'page' == get_option('show_on_front') && $post_id == get_option('page_for_posts') ) {
+                    // Workaround to be able to show the blog posts on a page with custom URL
+                    $post = get_post( $post_id );
+                    $wp->query_vars = array( 'pagename', $post->post_name );
+                } else {
+                    $wp->query_vars = array( 'p' => $post_id, 'post_type' => 'page' );
+                }
             }
         }
     }
@@ -746,19 +753,7 @@ class SwiftyPageManager
         $children = $branch->children;
 
         // Sort children by menu_order and post_title
-        usort( $children, function( $a, $b ) {
-            $result = 0;
-
-            if ( isset( $a->page ) && isset( $b->page ) ) {
-                $result = $a->page->menu_order - $b->page->menu_order;
-
-                if ( 0 == $result ) {
-                    $result = strcmp( $a->page->post_title, $b->page->post_title );
-                }
-            }
-
-            return $result;
-        } );
+        usort( $children, array( $this, '_sort_children' ) );
 
         foreach ( $children as $child ) {
             if ( isset( $child->page ) ) {
@@ -852,6 +847,24 @@ class SwiftyPageManager
     ////////////////////////////////////////////////////////////////////////////////////////
 
     /**
+     * Sort children by menu_order and post_title
+     */
+    protected function _sort_children( $a, $b )
+    {
+        $result = 0;
+
+        if ( isset( $a->page ) && isset( $b->page ) ) {
+            $result = $a->page->menu_order - $b->page->menu_order;
+
+            if ( 0 == $result ) {
+                $result = strcmp( $a->page->post_title, $b->page->post_title );
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * @param integer $post_id
      * @param string $post_status
      */
@@ -861,18 +874,6 @@ class SwiftyPageManager
             'ID'          => $post_id,
             'post_status' => $post_status
         ) );
-    }
-
-    /**
-     * @param string $route
-     * @param callable $callable
-     */
-    protected function _add_route( $route, $callable )
-    {
-        $hook_name = get_plugin_page_hookname( $route, '' );
-        add_action( $hook_name, $callable );
-        global $_registered_pages;
-        $_registered_pages[ $hook_name ] = true;
     }
 
     /**
@@ -1129,6 +1130,7 @@ class SwiftyPageManager
      *
      * @param WP_Post $ref_post
      * @param string $direction, can be 'before','after' or 'inside'
+     * @return int
      */
     protected function _createSpaceForMove( $ref_post, $direction = 'after' ) {
         /** @var wpdb $wpdb */
