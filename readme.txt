@@ -4,7 +4,7 @@ Donate link: http://swiftylife.com/plugins/donate/
 Tags: Swifty, page, pages, tree, menu, manage, hierarchy, structure
 Requires at least: 3.8
 Tested up to: 3.9
-Stable tag: 1.0.5
+Stable tag: 1.0.6
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,8 @@ Swifty Page Manager is currently available in:
 
  * English
  * Nederlands
+ * Simplified Chinese (by LoveFS)
+ * Serbian (by [Borisa Djuraskovic](http://www.webhostinghub.com))
 
 [Want to help add or improve translations? Click here.](http://swiftylife.com/plugins/translate/)
 
@@ -142,6 +144,10 @@ Try to describe the actions that lead up to the point where something is not wor
 Try it - it's free!
 
 == Changelog ==
+
+= 1.0.6 =
+ * Added language: Simplified Chinese (Thanks to: LoveFS).
+ * Added language: Serbian (Thanks to: Borisa Djuraskovic).
 
 = 1.0.5 =
  * Fixed bug: plugin did not activate in PHP 5.2.4.
