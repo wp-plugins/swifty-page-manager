@@ -4,7 +4,7 @@ Donate link: http://swiftylife.com/plugins/donate/
 Tags: Swifty, page, pages, tree, menu, manage, hierarchy, structure
 Requires at least: 3.8
 Tested up to: 3.9
-Stable tag: 1.0.6
+Stable tag: 1.0.7
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -145,7 +145,7 @@ Try it - it's free!
 
 == Changelog ==
 
-= 1.0.6 =
+= 1.0.7 =
  * Added language: Simplified Chinese (Thanks to: LoveFS).
  * Added language: Serbian (Thanks to: Borisa Djuraskovic).
 
