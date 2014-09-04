@@ -1,10 +1,10 @@
 === Swifty Page Manager ===
-Contributors: robertheessels, chrisvermeulen, SwiftyLife, jeroenh, jeroenvermeulen, eenhoopjob, noemi-van-de-moosdijk
+Contributors: SwiftyLife, robertheessels, chrisvermeulen, jeroenh, jeroenvermeulen, martijn-van-der-kooij, eenhoopjob, noemi-van-de-moosdijk
 Donate link: http://swiftylife.com/plugins/donate/
 Tags: Swifty, page, pages, tree, menu, manage, hierarchy, structure
 Requires at least: 3.8
-Tested up to: 3.9
-Stable tag: 1.0.7
+Tested up to: 4.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -144,6 +144,10 @@ Try to describe the actions that lead up to the point where something is not wor
 Try it - it's free!
 
 == Changelog ==
+
+= 1.1.0 =
+ * Fixed bug: post-type related
+ * Ready for Wordpress 4.0
 
 = 1.0.7 =
  * Added language: Simplified Chinese (Thanks to: LoveFS).

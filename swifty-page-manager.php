@@ -3,7 +3,7 @@
 Plugin Name: Swifty Page Manager
 Description: Easily create, move and delete pages. Manage page settings.
 Author: SwiftyLife
-Version: 1.0.7
+Version: 1.1.0
 Author URI: http://swiftylife.com/plugins/
 Plugin URI: http://swiftylife.com/plugins/swifty-page-manager/
 */
@@ -15,7 +15,7 @@ class SwiftyPageManager
     protected $plugin_basename;
     protected $plugin_dir_url;
     protected $plugin_url;
-    protected $_plugin_version = '1.0.7';
+    protected $_plugin_version = '1.1.0';
     protected $_post_status = 'any';
     protected $_post_type = 'page';
     protected $_tree = null;
@@ -58,10 +58,6 @@ class SwiftyPageManager
         if ( current_user_can( 'edit_pages' ) ) {
             if ( ! empty( $_GET['status'] ) ) {
                 $this->_post_status = $_GET['status'];
-            }
-
-            if ( ! empty( $_GET['post_type'] ) ) {
-                $this->_post_type = $_GET['post_type'];
             }
 
             load_plugin_textdomain( 'swifty-page-manager', false, '/swifty-page-manager/languages' );
