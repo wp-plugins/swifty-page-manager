@@ -3,10 +3,12 @@
 Plugin Name: Swifty Page Manager
 Description: Easily create, move and delete pages. Manage page settings.
 Author: SwiftyLife
-Version: 1.1.0
+Version: 1.2.0
 Author URI: http://swiftylife.com/plugins/
 Plugin URI: http://swiftylife.com/plugins/swifty-page-manager/
 */
+
+if ( ! defined( 'ABSPATH' ) ) exit;
 
 class SwiftyPageManager
 {
@@ -15,30 +17,62 @@ class SwiftyPageManager
     protected $plugin_basename;
     protected $plugin_dir_url;
     protected $plugin_url;
-    protected $_plugin_version = '1.1.0';
+    protected $_plugin_version = '1.2.0';
     protected $_post_status = 'any';
     protected $_post_type = 'page';
     protected $_tree = null;
     protected $_by_page_id = null;
     protected $is_swifty = false;
+    protected $swifty_admin_page = 'swifty_page_manager_admin';
 
     /**
      * Constructor
      */
     public function __construct()
     {
-        $this->plugin_file     = __FILE__ ;
-        $this->plugin_dir      = dirname( $this->plugin_file );
+        $this->plugin_file = __FILE__;
+        $this->plugin_dir = dirname( $this->plugin_file );
         $this->plugin_basename = basename( $this->plugin_dir );
-        $this->plugin_dir_url  = plugins_url( rawurlencode( basename( $this->plugin_dir ) ) );
-        $this->plugin_url      = $_SERVER['REQUEST_URI'];
-        $this->is_swifty       = $this->_is_plugin_minimal( 'swifty-menu/*', '0.0.3' );
+        $this->plugin_dir_url = plugins_url( rawurlencode( basename( $this->plugin_dir ) ) );
+        $this->plugin_url = $_SERVER[ 'REQUEST_URI' ];
+
+        if( ! class_exists( 'SwiftyDPageDManagerLibSPluginView' ) ) {
+            require_once plugin_dir_path( __FILE__ ) . 'lib/swifty_plugin/php/lib_swifty_plugin_view.php';
+        }
+
+        add_filter( 'swifty_active_plugins', array( $this, 'hook_swifty_active_plugins' ) );
+
+        // postpone further initialization to allow loading other plugins
+        add_action( 'plugins_loaded', array( $this, 'plugins_loaded' ) );
+    }
+
+    /**
+     * Called via Swifty filter 'swifty_active_plugins'
+     *
+     * Add the plugin name to the array
+     */
+    public function hook_swifty_active_plugins( $plugins )
+    {
+        $plugins[] = 'swifty-page-manager';
+        return $plugins;
+    }
+
+    /**
+     * Called via WP Action 'plugins_loaded'
+     *
+     * Initialize actions and filter
+     */
+    function plugins_loaded()
+    {
+        $this->is_swifty = SwiftyDPageDManagerLibSPluginView::is_ss_mode();
 
         // Actions for visitors viewing the site
         if ( $this->is_swifty ) {
-            add_filter( 'page_link',     array( $this, 'page_link' ), 10, 2 );
-            add_action( 'parse_request', array( $this, 'parse_request' ) );
-            add_filter( 'wp_title',      array( $this, 'seo_wp_title' ), 10, 2 );
+            add_filter( 'page_link',         array( $this, 'page_link' ), 10, 2 );
+            add_action( 'parse_request',     array( $this, 'parse_request' ) );
+            add_filter( 'wp_title',          array( $this, 'seo_wp_title' ), 10, 2 );
+            add_filter( 'admin_footer_text', array( $this, 'empty_footer_text' ) );
+            add_filter( 'update_footer',     array( $this, 'empty_footer_text' ), 999 );
         }
 
         // Actions for admins, warning: is_admin is not a security check
@@ -46,6 +80,10 @@ class SwiftyPageManager
             add_action( 'init', array( $this, 'admin_init' ) );
         }
 
+    }
+
+    public function empty_footer_text() {
+        return '';
     }
 
     /**
@@ -86,9 +124,26 @@ class SwiftyPageManager
                 add_filter( 'wp_list_pages',       array( $this, 'wp_list_pages' ) );
                 add_filter( 'status_header',       array( $this, 'status_header' ) );
             }
+
+            if ( ! class_exists( 'SwiftyDPageDManagerLibSPlugin' ) ) {
+                require_once plugin_dir_path( __FILE__ ) . 'lib/swifty_plugin/php/lib_swifty_plugin.php';
+                new SwiftyDPageDManagerLibSPlugin();
+            }
         }
     }
 
+    public function get_admin_page_title()
+    {
+        $swifty_SS2_hosting_name = apply_filters( 'swifty_SS2_hosting_name', false );
+        if( $swifty_SS2_hosting_name ) {
+            $admin_page_title = __( 'SwiftySite Pages', 'swifty' );
+        } else {
+            $admin_page_title = __( 'Swifty Page Manager', 'swifty' );
+        }
+        return $admin_page_title;
+    }
+
+    /**
     /**
      * @param string $title
      * @param string $sep
@@ -141,9 +196,6 @@ class SwiftyPageManager
             wp_die( __( 'You do not have sufficient permissions to access this page. #314' ) );
         }
 
-        /** @var wpdb $wpdb - Wordpress Database */
-        global $wpdb;
-
         // Check it's not an auto save routine
         if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
             return;
@@ -153,9 +205,11 @@ class SwiftyPageManager
               $post->post_type   === 'page'   &&
               $post->post_status === '__TMP__'
         ) {
-            $wpdb->query( $wpdb->prepare( "UPDATE $wpdb->posts SET post_status = '%s' WHERE id = %d",
-                                          $_POST['post_status'],
-                                          $post_id ) );
+            $post_data = array(
+                'ID'           => $post_id,
+                'post_status'   => $_POST['post_status'],
+            );
+            wp_update_post( $post_data );
         }
     }
 
@@ -163,6 +217,7 @@ class SwiftyPageManager
      * Called via WP Action 'parse_request' if is_swifty
      *
      * Action function to make our overridden URLs work by changing the query params.
+     * the meta data "spm_url" contains the wanted url (without domain)
      *
      * @param wp $wp - WordPress object
      */
@@ -293,11 +348,22 @@ class SwiftyPageManager
             wp_die( __( 'You do not have sufficient permissions to access this page. #314' ) );
         }
 
+        // hide update notices from this page
+        remove_action( 'admin_notices', 'update_nag', 3 );
+
         $currentScreen = get_current_screen();
 
-        if ( 'pages_page_page-tree' === $currentScreen->base ) {
-            /** @noinspection PhpIncludeInspection */
-            require $this->plugin_dir . '/view/admin_head.php';
+        if ( 'pages_page_page-tree' === $currentScreen->base ||
+           ( 'edit' === $currentScreen->base && 'page' === $currentScreen->post_type && 'trash' === get_query_var( 'post_status' ) )
+        ) {
+            if ( 'pages_page_page-tree' === $currentScreen->base ) {
+                /** @noinspection PhpIncludeInspection */
+                require $this->plugin_dir . '/view/admin_head.php';
+            }
+
+            if( $this->is_swifty ) {
+                require $this->plugin_dir . '/view/swifty_admin_head.php';
+            }
         }
     }
 
@@ -309,11 +375,27 @@ class SwiftyPageManager
     public function admin_menu()
     {
         add_submenu_page( 'edit.php?post_type=' . $this->_post_type,
-                          __( 'Swifty Page Manager', 'swifty-page-manager' ),
-                          __( 'Swifty Page Manager', 'swifty-page-manager' ),
+                          $this->get_admin_page_title(),
+                          $this->get_admin_page_title(),
                           'edit_pages',
                           'page-tree',
                           array( $this, 'view_page_tree' ) );
+
+        add_filter( 'swifty_admin_page_links_' . $this->swifty_admin_page, array( $this, 'hook_swifty_admin_page_links' ) );
+
+        SwiftyDPageDManagerLibSPlugin::get_instance()->admin_add_swifty_menu( $this->get_admin_page_title(), __('Pages', 'swifty-page-manager'), $this->swifty_admin_page, array( &$this, 'admin_spm_menu_page' ), true );
+    }
+
+    /**
+     * Called via admin_menu hook
+     *
+     * Add links to admin menu
+     */
+    public function hook_swifty_admin_page_links( $settings_links )
+    {
+        $settings_links['general'] = array( 'title' => __( 'General', 'swifty-page-manager' ), 'method' => array( &$this, 'spm_tab_options_content' ) );
+
+        return $settings_links;
     }
 
     /**
@@ -339,7 +421,7 @@ class SwiftyPageManager
 
         wp_enqueue_style( 'jquery-alerts',  $this->plugin_dir_url . '/css/jquery.alerts.css', false,
                           $this->_plugin_version );
-        wp_enqueue_style( 'spm-font-awesome', '//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css',
+        wp_enqueue_style( 'spm-font-awesome', '//netdna.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css',
                           false, $this->_plugin_version );
 
         $oLocale = array(
@@ -352,13 +434,31 @@ class SwiftyPageManager
             'password_protected_page' => __( 'Password protected page', 'swifty-page-manager' ),
             'no_pages_found'          => __( 'No pages found.', 'swifty-page-manager' ),
             'hidden_page'             => __( 'Hidden', 'swifty-page-manager' ),
-            'no_sub_page_when_draft'  => __( "Sorry, can't create a sub page to a page with status \"draft\".", 'swifty-page-manager' ),
+            'no_sub_page_when_draft'  => __( "Unfortunately you can not create a sub page under a page with status 'Draft' because the draft page has not yet been published and thus technically does not exist yet. For now, just create it as a regular page and later you can drag and drop it to become a sub page.", 'swifty-page-manager' ),
+            'status_published_draft_content_ucase' => ucfirst( __( 'published - draft content', 'swifty-page-manager' ) )
         );
 
         wp_localize_script( 'spm', 'spm_l10n', $oLocale );
+        wp_localize_script( 'spm', 'spm_data', array(
+            'is_swifty_mode' => SwiftyDPageDManagerLibSPluginView::is_ss_mode()
+        ) );
 
         /** @noinspection PhpIncludeInspection */
         require( $this->plugin_dir . '/view/page_tree.php' );
+    }
+
+    // Our plugin admin menu page
+    function admin_spm_menu_page()
+    {
+        SwiftyDPageDManagerLibSPlugin::get_instance()->admin_options_menu_page( $this->swifty_admin_page );
+    }
+
+    function spm_tab_options_content()
+    {
+        echo '<p>' . __( 'There are currently no settings for this plugin.', 'swifty-page-manager' ) . '</p>';
+//        settings_fields( 'spm_plugin_options' );
+//        do_settings_sections( 'spm_plugin_options_page' );
+//        submit_button();
     }
 
     /**
@@ -424,8 +524,6 @@ class SwiftyPageManager
          the reference node in the move,
          the new position relative to the reference node (one of "before", "after" or "inside")
         */
-        /** @var wpdb $wpdb - Wordpress Database */
-        global $wpdb;
 
         $node_id     = $_POST['node_id']; // the node that was moved
         $ref_node_id = $_POST['ref_node_id'];
@@ -486,9 +584,6 @@ class SwiftyPageManager
         if ( ! current_user_can( 'edit_pages' ) ) {
             wp_die( __( 'You do not have sufficient permissions to access this page. #588' ) );
         }
-
-        /** @var wpdb $wpdb - Wordpress Database */
-        global $wpdb;
 
         $post_id     = ! empty( $_POST['post_ID'] )    ? intval( $_POST['post_ID'] )  : null;
         $post_title  = ! empty( $_POST['post_title'] ) ? trim( $_POST['post_title'] ) : '';
@@ -893,26 +988,30 @@ class SwiftyPageManager
             foreach ( $keys as $key ) {
                 $page = $pages[ $key ];
 
-                if ( isset( $this->_by_page_id[ $page->ID ] ) ) {
-                    $branch = &$this->_by_page_id[ $page->ID ];
-                    $branch->page = $page;
-
-                    unset( $branch );
+                if( $this->is_swifty && apply_filters( 'swifty_is_theme_area_page', false, $page->guid ) ) {
                     unset( $pages[ $key ] );
+                } else {
+                    if( isset( $this->_by_page_id[ $page->ID ] ) ) {
+                        $branch = &$this->_by_page_id[ $page->ID ];
+                        $branch->page = $page;
 
-                    $added = true;
-                } else if ( isset( $this->_by_page_id[ $page->post_parent ] ) ) {
-                    $parent_branch = &$this->_by_page_id[ $page->post_parent ];
-                    $new_branch = new stdClass();
-                    $new_branch->page = $page;
-                    $new_branch->children = array();
-                    $this->_by_page_id[ $new_branch->page->ID ] = &$new_branch;
-                    $parent_branch->children[] = &$new_branch; // Warning, does not sort children correctly
+                        unset( $branch );
+                        unset( $pages[ $key ] );
 
-                    unset( $new_branch );
-                    unset( $pages[ $key ] );
+                        $added = true;
+                    } else if( isset( $this->_by_page_id[ $page->post_parent ] ) ) {
+                        $parent_branch = &$this->_by_page_id[ $page->post_parent ];
+                        $new_branch = new stdClass();
+                        $new_branch->page = $page;
+                        $new_branch->children = array();
+                        $this->_by_page_id[ $new_branch->page->ID ] = &$new_branch;
+                        $parent_branch->children[ ] = &$new_branch; // Warning, does not sort children correctly
 
-                    $added = true;
+                        unset( $new_branch );
+                        unset( $pages[ $key ] );
+
+                        $added = true;
+                    }
                 }
             }
         }
@@ -995,7 +1094,15 @@ class SwiftyPageManager
         }
 
         if ( current_user_can( $post_type_object->cap->delete_post, $page_id ) ) {
-            $arr_page_css_styles[] = 'spm-can-delete';
+            if( $one_page->post_parent ) {
+                $arr_page_css_styles[] = 'spm-can-delete';
+            } else {
+                $page_count = count( get_pages( 'parent=0' ) );
+                // we are not allowed to remove the last published page
+                if( ( $page_count > 1 ) || ( $one_page->post_status !== 'publish' ) ) {
+                    $arr_page_css_styles[] = 'spm-can-delete';
+                }
+            }
         }
 
         if ( $this->is_swifty ) {
@@ -1029,11 +1136,13 @@ class SwiftyPageManager
 
         $page_json_data['metadata']['rel']             = $rel;
         $page_json_data['metadata']['permalink']       = htmlspecialchars_decode( get_permalink( $one_page->ID ) );
+        $page_json_data['metadata']['swifty_edit_url'] = add_query_arg( 'swcreator_edit', 'main', htmlspecialchars_decode( get_permalink( $one_page->ID ) ) );
         $page_json_data['metadata']['editlink']        = htmlspecialchars_decode( $editLink );
         $page_json_data['metadata']['modified_time']   = $post_modified_time;
         $page_json_data['metadata']['modified_author'] = $post_author;
         $page_json_data['metadata']['post_title']      = $title;
         $page_json_data['metadata']['delete_nonce']    = wp_create_nonce( 'delete-page_' . $one_page->ID, '_trash' );
+        $page_json_data['metadata']['published_draft_content'] = SwiftyDPageDManagerLibSPlugin::get_instance()->get_autosave_version_if_newer( $page_id );
 
         return $page_json_data;
     }
@@ -1160,10 +1269,10 @@ class SwiftyPageManager
                         'ID'         => $one_post->ID,
                         'menu_order' => $one_post->menu_order + 2
                     );
-                    $return_id = wp_update_post( $post_update );
+                    $return_id = wp_update_post( $post_update, true );
 
-                    if ( 0 === $return_id ) {
-                        die( 'Error: could not update post with id ' . $post_update->ID . '<br>Technical details: ' . print_r( $post_update ) );
+                    if (is_wp_error($return_id)) {
+                        die( 'Error: could not update post with id ' . $post_update['ID'] . '<br>Technical details: ' . print_r( $return_id, true ) );
                     }
                 }
 
