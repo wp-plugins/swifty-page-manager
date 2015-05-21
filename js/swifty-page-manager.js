@@ -19,6 +19,27 @@ var SPM = (function( $, document ) {
 
         this.getStatusCounts();
         this.startListeners();
+
+        if ( spm_data.is_swifty_mode ) {
+            this.createTrashButton();
+        }
+    };
+
+    spm.createTrashButton = function() {
+        var $trashLink = $( '.spm-status-trash' );
+        var $trashLinkLi, $lastLi;
+
+        if ( $trashLink.length && ( spm.statusCounts.trash > 0 ) ) {
+            $trashLinkLi = $trashLink.parent();
+            $lastLi = $( 'ul.spm-status-links' ).find( '> li:last' );
+
+            if ( $trashLinkLi.length && $lastLi.length ) {
+                $lastLi.find( 'form' ).append( $trashLink );
+                $trashLink.addClass( 'button button-small' ).css( 'margin', '0 0 0 20px' );
+                $trashLink.find( 'span' ).remove();
+                $trashLinkLi.remove();
+            }
+        }
     };
 
     spm.startListeners = function() {
@@ -171,11 +192,14 @@ var SPM = (function( $, document ) {
 
                     break;
                 case 'edit':
-                    window.location = $li.data( 'editlink' );
+                    window.location = spm_data.is_swifty_mode ? $li.data( 'swifty_edit_url' ) : $li.data( 'editlink' );
 
                     break;
                 case 'view':
                     window.location = $li.data( 'permalink' );
+
+                    break;
+                case 'draginfo':
 
                     break;
                 default:
@@ -185,6 +209,21 @@ var SPM = (function( $, document ) {
             }
 
             return false;
+        });
+
+        $( document ).on( 'click', '.spm_back_button', function( /*ev*/ ) {
+            // in worst case fallback to main page
+            var backLocation = window.location.protocol + '//' +
+                               window.location.hostname + ':' +
+                               window.location.port + '/';
+
+            if ( typeof Storage !== 'undefined' ) {
+                if ( sessionStorage.back_location ) {
+                    backLocation = sessionStorage.back_location;
+                }
+            }
+
+            window.location = backLocation;
         });
 
         $( document ).on( 'click', '.spm-do-button', function( /*ev*/ ) {
@@ -416,6 +455,7 @@ var SPM = (function( $, document ) {
     spm.preparePageActionButtons = function( $li ) {
         var $a = $li.find( '> a' );
         var isDraft = $a.find( '.post_type_draft' ).length;
+        var isDraftContent = $a.find( '.post_type_published_draft_content' ).length;
         var $tree = $li.closest( '.spm-tree-container' );
         var $tmpl = this.getPageActionButtonsTmpl();
 
@@ -437,7 +477,7 @@ var SPM = (function( $, document ) {
         $tmpl.find( 'span[data-spm-action=publish]' )
             .toggleClass( 'button-primary-disabled', ! $li.hasClass( 'spm-can-publish' ) );
 
-        if ( !isDraft ) {
+        if ( !isDraft && !isDraftContent ) {
             $tmpl.find( 'span[data-spm-action=publish]' ).hide();
         }
 
@@ -584,6 +624,7 @@ var SPM = (function( $, document ) {
     };
 
     spm.updateStatusCount = function() {
+        var self = this;
         var dfd = $.Deferred();
 
         $.ajax({
@@ -607,7 +648,13 @@ var SPM = (function( $, document ) {
                 $statusLink.find( '.count' ).text( '(' + statusCount + ')' );
 
                 if ( $li.hasClass( 'spm-hidden' ) && statusCount === '1' && statusName !== 'any' ) {
-                    $li.removeClass( 'spm-hidden' );
+                    if( !spm_data.is_swifty_mode ) {
+                        $li.removeClass( 'spm-hidden' );
+                    }
+
+                    if ( statusName === 'trash' && spm_data.is_swifty_mode ) {
+                        self.createTrashButton();
+                    }
                 }
 
                 if ( $statusLink.hasClass( 'current' ) &&
@@ -686,6 +733,7 @@ var SPM = (function( $, document ) {
                     var rel = $li.data( 'rel' );
                     var postStatus = $li.data( 'post_status' );
                     var postStatusToShow = spm_l10n[ 'status_' + postStatus + '_ucase' ];
+                    var publishedDraftContent = $li.data( 'published_draft_content' );
 
                     // Check that we haven't added our stuff already
                     if ( $li.data( 'done_spm_clean_node' ) ) {
@@ -713,6 +761,15 @@ var SPM = (function( $, document ) {
                             $li,
                             '<span class="post_type post_type_' + postStatus + '">' + postStatusToShow + '</span>'
                         );
+                    } else {
+                        if( publishedDraftContent ) {
+                            spm.setLabel(
+                                $li,
+                                '<span class="post_type post_type_published_draft_content">' +
+                                    spm_l10n.status_published_draft_content_ucase +
+                                '</span>'
+                            );
+                        }
                     }
 
                     if ( $li.hasClass( 'spm-show-page-in-menu-no' ) ) {
