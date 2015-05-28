@@ -4,7 +4,7 @@ Donate link: http://swiftylife.com/plugins/donate/
 Tags: Swifty, page, pages, tree, menu, manage, hierarchy, structure
 Requires at least: 3.8
 Tested up to: 4.2.2
-Stable tag: 1.2.0
+Stable tag: 1.2.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -146,10 +146,16 @@ Try it - it's free!
 
 == Changelog ==
 
+= 1.2.1 =
+ * Fixed important bug: 1.2.0 caused the plugin to confict with some other plugins. Please update asap!
+ * Changed: Status labels for draft etc. are now after the page title instead of in front
+ * Changed: Rearranged a few of the page icons
+ * Changed: Input fields are now wider
+
 = 1.2.0 =
  * Fixed bug: broken trash link
  * Added a move button to the page manager pages, hovering it will display a help message
- * Added language: Chinese (Thanks to: Ahrale).
+ * Added language: Hebrew (Thanks to: Ahrale).
  * Numerous small inprovements
  * Ready for Wordpress 4.2.2
 
