@@ -159,28 +159,34 @@ class SwiftyDPageDManagerLibSPluginView
 }
 
 // load the swifty font, only load the latest version.
+if(! function_exists( 'swifty_lib_view_enqueue_styles' ) ) {
 
-function enqueue_styles()
-{
-    if ( is_user_logged_in() ) {
-        global $swifty_font_url;
-        global $swifty_font_version;
+    function swifty_lib_view_enqueue_styles()
+    {
+        if( is_user_logged_in() ) {
+            global $swifty_font_url;
+            global $swifty_font_version;
 
-        wp_enqueue_style(
-            'swifty-font.css',
-            $swifty_font_url,
-            array(),
-            $swifty_font_version,
-            'all'
-        );
+            wp_enqueue_style(
+                'swifty-font.css',
+                $swifty_font_url,
+                array(),
+                $swifty_font_version,
+                'all'
+            );
+        }
     }
+
+    // load swifty font in both view and edit
+    add_action( 'wp_enqueue_scripts', 'swifty_lib_view_enqueue_styles' );
+    add_action( 'admin_enqueue_scripts', 'swifty_lib_view_enqueue_styles' );
 }
 
 $font_version = (int)'1432037392000';
 
 global $swifty_font_version;
 global $swifty_font_url;
-global $scc_buildUse;
+global $swifty_buildUse;
 
 if( !isset( $swifty_font_version ) || ( $swifty_font_version < $font_version ) ) {
     $swifty_font_version = $font_version;
@@ -191,13 +197,9 @@ if( !isset( $swifty_font_version ) || ( $swifty_font_version < $font_version ) )
     $plugin_basename = basename( $plugin_dir );
     $plugin_dir_url  = trailingslashit( plugins_url( rawurlencode( $plugin_basename ) ) );
 
-    if( $scc_buildUse == 'build' ) {
+    if( $swifty_buildUse == 'build' ) {
         $swifty_font_url = $plugin_dir_url . 'css/swifty-font.css';
     } else {
         $swifty_font_url = $plugin_dir_url . 'lib/swifty_plugin/css/swifty-font.css';
     }
 }
-
-// load swifty font in both view and edit
-add_action( 'wp_enqueue_scripts', 'enqueue_styles' );
-add_action( 'admin_enqueue_scripts', 'enqueue_styles' );
