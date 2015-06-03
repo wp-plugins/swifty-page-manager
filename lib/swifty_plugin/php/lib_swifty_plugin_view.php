@@ -4,16 +4,16 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 require_once plugin_dir_path( __FILE__ ) . 'lib/swifty-captcha.php';
 
-class SwiftyDPageDManagerLibSPluginView
+class LibSwiftyPluginView
 {
-    protected static $instance;
+    protected static $instance_view;
     protected static $_ss_mode = null;
     protected static $_valid_modes = array( 'ss', 'wp', 'ss_force' );
     protected static $_default_mode = 'ss';
 
     public function __construct()
     {
-        self::$instance = $this;
+        self::$instance_view = $this;
 
         // allow every plugin to get to the initialization part, all plugins should be loaded then
         add_action( 'plugins_loaded', array( $this, 'action_plugins_loaded' ) );
@@ -22,7 +22,7 @@ class SwiftyDPageDManagerLibSPluginView
 
     public static function get_instance()
     {
-        return self::$instance;
+        return self::$instance_view;
     }
 
     public static $required_active_plugins = array();
@@ -143,7 +143,7 @@ class SwiftyDPageDManagerLibSPluginView
         $autosave = wp_get_post_autosave( $pid );
         $post = get_post( $pid );
         $newer_revision = null;
-        if( $autosave && mysql2date( 'U', $autosave->post_modified_gmt, false ) > mysql2date( 'U', $post->post_modified_gmt, false ) ) {
+        if( $autosave && $post && ( mysql2date( 'U', $autosave->post_modified_gmt, false ) >= mysql2date( 'U', $post->post_modified_gmt, false ) ) ) {
             foreach( _wp_post_revision_fields() as $autosave_field => $_autosave_field ) {
                 if( normalize_whitespace( $autosave->$autosave_field ) != normalize_whitespace( $post->$autosave_field ) ) {
                     if( $autosave_field === 'post_content' ) {
@@ -198,7 +198,13 @@ if( !isset( $swifty_font_version ) || ( $swifty_font_version < $font_version ) )
     $plugin_dir_url  = trailingslashit( plugins_url( rawurlencode( $plugin_basename ) ) );
 
     if( $swifty_buildUse == 'build' ) {
-        $swifty_font_url = $plugin_dir_url . 'css/swifty-font.css';
+        // dorh Quick fix for wrong font location when used in SSD
+        if( file_exists( $plugin_dir_url . 'css/swifty-font.css' ) ) {
+            $swifty_font_url = $plugin_dir_url . 'css/swifty-font.css';
+        } else {
+            $plugin_dir_url  = trailingslashit( plugins_url( rawurlencode( 'swifty-site' ) ) );
+            $swifty_font_url = $plugin_dir_url . 'css/swifty-font.css';
+        }
     } else {
         $swifty_font_url = $plugin_dir_url . 'lib/swifty_plugin/css/swifty-font.css';
     }

@@ -273,6 +273,47 @@ if ( ! class_exists( 'Swifty_TGM_Plugin_Activation' ) ) {
 
         }
 
+        // install required plugins, used when activating the main plugin
+        public function install_plugins()
+        {
+            $installed_plugins = get_plugins(); // Retrieve a list of all the plugins
+            $this->populate_file_path();
+
+            require_once ABSPATH . 'wp-admin/includes/plugin-install.php'; // Need for plugins_api.
+            require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php'; // Need for upgrade classes.
+
+            foreach ( $this->plugins as $plugin ) {
+                // Is plugin installed?
+                if ( ! isset( $installed_plugins[$plugin['file_path']] ) ) {
+
+                    // Create a new instance of Plugin_Upgrader.
+                    $upgrader = new Plugin_Upgrader( $skin = new Automatic_Upgrader_Skin() );
+
+                    // Set plugin source to WordPress API link if available.
+                    if ( !isset( $plugin['source'] ) ) {
+                        $plugin['source'] = 'repo';
+                        $api = plugins_api( 'plugin_information', array( 'slug' => $plugin['slug'], 'fields' => array( 'sections' => false ) ) );
+
+                        if ( is_wp_error( $api ) ) {
+                            wp_die( $this->strings['oops'] . var_dump( $api ) );
+                        }
+
+                        if ( isset( $api->download_link ) ) {
+                            $plugin['source'] = $api->download_link;
+                        }
+                    }
+
+                    // Perform the action and install the plugin from the $source urldecode().
+                    $source = apply_filters( 'swifty_get_download_url', $plugin['source'] );
+
+                    $upgrader->install( $source );
+
+                    // Flush plugins cache so we can make sure that the installed plugins list is always up to date.
+                    wp_cache_flush();
+                }
+            }
+        }
+
         /**
          * Handles calls to show plugin information via links in the notices.
          *
@@ -470,6 +511,8 @@ if ( ! class_exists( 'Swifty_TGM_Plugin_Activation' ) ) {
                         $plugin['source'] = $api->download_link;
                     }
                 }
+
+                $plugin['source'] = apply_filters( 'swifty_get_download_url', $plugin['source'] );
 
                 // Set type, based on whether the source starts with http:// or https://.
                 $type = preg_match( '|^http(s)?://|', $plugin['source'] ) ? 'web' : 'upload';
@@ -1180,7 +1223,7 @@ if ( ! class_exists( 'STGMPA_List_Table' ) ) {
 
                 if ( ! empty( $plugin['source'] ) ) {
                     // The plugin must be from a private repository.
-                    if ( preg_match( '|^http(s)?://|', $plugin['source'] ) ) {
+                    if ( preg_match( '|^http(s)?://|', $plugin['source'] ) || (strpos($plugin['source'], 'swiftyget:') === 0) ) {
                         $table_data[$i]['source'] = nlf__( 'Private Repository', 'swifty' );
                     // The plugin is pre-packaged with the theme.
                     } else {
@@ -1790,7 +1833,7 @@ if ( ! function_exists( 'stgmpa_load_bulk_installer' ) ) {
                             // Do the plugin install.
                             $result = $this->run(
                                 array(
-                                    'package'           => $plugin, // The plugin source.
+                                    'package'           => apply_filters( 'swifty_get_download_url', $plugin ), // The plugin source.
                                     'destination'       => WP_PLUGIN_DIR, // The destination dir.
                                     'clear_destination' => false, // Do we want to clear the destination or not?
                                     'clear_working'     => true, // Remove original install file.

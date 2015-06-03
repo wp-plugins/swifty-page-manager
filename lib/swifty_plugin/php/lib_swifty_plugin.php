@@ -2,13 +2,14 @@
 // Exit if accessed directly
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-if ( ! class_exists( 'SwiftyDPageDManagerLibSPluginView' ) ) {
+if ( ! class_exists( 'LibSwiftyPluginView' ) ) {
     require_once plugin_dir_path( __FILE__ ) . 'lib_swifty_plugin_view.php';
 }
 require_once plugin_dir_path( __FILE__ ) . 'lib/swifty_class-tgm-plugin-activation.php';
 
-class SwiftyDPageDManagerLibSPlugin extends SwiftyDPageDManagerLibSPluginView
+class LibSwiftyPlugin extends LibSwiftyPluginView
 {
+    protected static $instance;
     protected $our_swifty_plugins = array();
     protected $added_swifty_slugs = array();
 
@@ -16,7 +17,12 @@ class SwiftyDPageDManagerLibSPlugin extends SwiftyDPageDManagerLibSPluginView
     {
         parent::__construct();
 
+        self::$instance = $this;
+    }
 
+    public static function get_instance()
+    {
+        return self::$instance;
     }
 
     public function admin_add_swifty_menu( $name, $swiftyname, $key, $func, $register_plugin ) {
@@ -193,7 +199,7 @@ class SwiftyDPageDManagerLibSPlugin extends SwiftyDPageDManagerLibSPluginView
     }
 
     // change the permalink to postname option. Call this on plugin activation:
-    //register_activation_hook( __FILE__, array( SwiftyDPageDManagerLibSPlugin::get_instance(), 'change_permalinks' ) );
+    //register_activation_hook( __FILE__, array( LibSwiftyPlugin::get_instance(), 'change_permalinks' ) );
     public function change_permalinks()
     {
         add_action( 'permalink_structure_changed', array( &$this, 'action_permalink_structure_changed'), 10, 2 );
@@ -216,6 +222,37 @@ class SwiftyDPageDManagerLibSPlugin extends SwiftyDPageDManagerLibSPluginView
         $wp_rewrite->flush_rules();
     }
 
+    // create a autosave revision with this content
+    public function update_autosave_version( $pid, $content )
+    {
+        $post = get_post( $pid );
+
+        // only when something has changed
+        if( $post && ( normalize_whitespace( $post->post_content ) != normalize_whitespace( $content ) ) ) {
+            $post->post_content = $content;
+            $post = $post->to_array();
+            $post[ 'post_ID' ] = $pid;
+            wp_create_post_autosave( $post );
+        }
+    }
+
+    // enhance wp_update_post with keeping autosave changes in swifty mode
+    function wp_update_post_keep_autosave( $post_id, $postarr = array(), $wp_error = false )
+    {
+        $autosave_content = null;
+
+        if( $this->is_ss_mode() ) {
+            $autosave_content = $this->get_autosave_version_if_newer( $post_id );
+        }
+
+        $id_saved = wp_update_post( $postarr, $wp_error );
+
+        if( $autosave_content && ! is_wp_error( $id_saved ) ) {
+            $this->update_autosave_version( $id_saved, $autosave_content );
+        }
+
+        return $id_saved;
+    }
 }
 
 if(! function_exists( 'swifty_lib_admin_enqueue_styles' ) ) {
