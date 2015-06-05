@@ -30,7 +30,7 @@ if( ! function_exists( 'swifty_autoload_lib_helper' ) ) {
         }
     }
 
-    spl_autoload_register( function ( $class_name ) {
+    function swifty_autoload_function( $class_name ) {
         if( $class_name === 'LibSwiftyPlugin' ) {
             swifty_autoload_lib_helper_main( '/php/lib_swifty_plugin.php' );
 
@@ -45,6 +45,8 @@ if( ! function_exists( 'swifty_autoload_lib_helper' ) ) {
                 new LibSwiftyPluginView();
             }
         }
-    } );
+    }
+
+    spl_autoload_register( 'swifty_autoload_function' );
 
 }
