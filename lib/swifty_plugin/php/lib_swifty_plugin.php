@@ -73,9 +73,9 @@ class LibSwiftyPlugin extends LibSwiftyPluginView
 
     // The Swifty admin main menu page (For ALL Swifty plugins)
     function admin_swifty_menu_page() {
-        echo '<h1>' . __( 'Swifty plugins', 'swifty' ) . '</h1>';
+        echo '<h1>' . __( 'Swifty Plugins', 'swifty' ) . '</h1>';
 
-        echo '<h4><br>' . __( 'Active Swifty plugins', 'swifty' ) . ':</h4>';
+        echo '<h4><br>' . __( 'Active Swifty Plugins', 'swifty' ) . ':</h4>';
 
         foreach( $this->our_swifty_plugins as $plugin ) {
             echo '<a href="' . admin_url( 'admin.php?page=' . $plugin[ 'key' ] ) . '">' . $plugin[ 'name' ] . '</a><br>';

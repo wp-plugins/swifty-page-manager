@@ -1738,7 +1738,7 @@ if ( ! function_exists( 'stgmpa_load_bulk_installer' ) ) {
     function stgmpa_load_bulk_installer() {
 
         // the following code is only performed from the admin pages and after initializing large parts
-        // of Wordpress. Swifty_TGM_Plugin_Activation::$instance->menu is now properly initialized...
+        // of WordPress. Swifty_TGM_Plugin_Activation::$instance->menu is now properly initialized...
 
         /**
          * The WP_Upgrader file isn't always available. If it isn't available,

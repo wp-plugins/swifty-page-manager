@@ -3,7 +3,7 @@
 Plugin Name: Swifty Page Manager
 Description: Easily create, move and delete pages. Manage page settings.
 Author: SwiftyLife
-Version: 1.4.0
+Version: 1.4.1
 Author URI: http://swiftylife.com/plugins/
 Plugin URI: http://swiftylife.com/plugins/swifty-page-manager/
 */
@@ -20,7 +20,7 @@ class SwiftyPageManager
     protected $plugin_basename;
     protected $plugin_dir_url;
     protected $plugin_url;
-    protected $_plugin_version = '1.4.0';
+    protected $_plugin_version = '1.4.1';
     protected $_post_status = 'any';
     protected $_post_type = 'page';
     protected $_tree = null;
@@ -222,6 +222,20 @@ class SwiftyPageManager
         }
     }
 
+    /*
+     * Search in DB for spm_url and return post id when found
+     *
+     */
+    protected function get_post_id_from_spm_url( $url )
+    {
+        /** @var wpdb $wpdb - Wordpress Database */
+        global $wpdb;
+
+        $query = $wpdb->prepare( "SELECT post_id FROM $wpdb->postmeta WHERE meta_key='spm_url' AND meta_value='%s'",
+            $url );
+        return $wpdb->get_var( $query );
+    }
+
     /**
      * Called via WP Action 'parse_request' if is_swifty
      *
@@ -232,22 +246,12 @@ class SwiftyPageManager
      */
     public function parse_request( &$wp )
     {
-        /** @var wpdb $wpdb - Wordpress Database */
-        global $wpdb;
+        if( ! empty( $wp->request ) ) {
+            $post_id = $this->get_post_id_from_spm_url( $wp->request );
 
-        if ( ! empty( $wp->request ) ) {
-            $query = $wpdb->prepare( "SELECT post_id FROM $wpdb->postmeta WHERE meta_key='spm_url' AND meta_value='%s'",
-                                     $wp->request );
-            $post_id = $wpdb->get_var( $query );
-
-            if ( $post_id ) {
-                if  ( 'page' == get_option('show_on_front') && $post_id == get_option('page_for_posts') ) {
-                    // Workaround to be able to show the blog posts on a page with custom URL
-                    $post = get_post( $post_id );
-                    $wp->query_vars = array( 'pagename', $post->post_name );
-                } else {
-                    $wp->query_vars = array( 'p' => $post_id, 'post_type' => 'page' );
-                }
+            if( $post_id ) {
+                $post = get_post( $post_id );
+                $wp->query_vars = array( 'pagename' => $post->post_name );
             }
         }
     }
@@ -595,6 +599,7 @@ class SwiftyPageManager
             wp_die( __( 'You do not have sufficient permissions to access this page. #588' ) );
         }
 
+        // post_name is de menu slug
         $post_id     = ! empty( $_POST['post_ID'] )    ? intval( $_POST['post_ID'] )  : null;
         $post_title  = ! empty( $_POST['post_title'] ) ? trim( $_POST['post_title'] ) : '';
         $post_name   = ! empty( $_POST['post_name'] )  ? trim( $_POST['post_name'] )  : '';
@@ -620,24 +625,36 @@ class SwiftyPageManager
         if ( isset( $post_id ) && ! empty( $post_id ) ) {  // We're in edit mode
             $post_data['ID'] = $post_id;
 
+            // test new menu url uniqueness in swifty mode
+            // ignore changes to the menu url when this test fails
+            $unique_spm_url = true;
+            if( $this->is_swifty ) {
+                $spm_url_post_id = $this->get_post_id_from_spm_url( $post_name );
+                if( $spm_url_post_id && ( $spm_url_post_id !== $post_id ) ) {
+                    $unique_spm_url = false;
+                }
+            }
+
             // $post_id = wp_update_post( $post_data ); < now keeping autosave
             $post_id = LibSwiftyPlugin::get_instance()->wp_update_post_keep_autosave( $post_id, $post_data );
 
-            if ( $post_id ) {
-                if ( $this->is_swifty ) {
-                    $cur_spm_url = get_post_meta( $post_id, 'spm_url', true );
+            if( $post_id ) {
+                if( $this->is_swifty ) {
+                    if( $unique_spm_url ) {
+                        $cur_spm_url = get_post_meta( $post_id, 'spm_url', true );
 
-                    if ( ! empty( $cur_spm_url ) ) {
-                        if ( $cur_spm_url !== $post_name ) {
-                            $this->save_old_url( $post_id, $cur_spm_url );
+                        if( ! empty( $cur_spm_url ) ) {
+                            if( $cur_spm_url !== $post_name ) {
+                                $this->save_old_url( $post_id, $cur_spm_url );
+                            }
+                        } else {
+                            if( $spm_is_custom_url ) {
+                                $this->save_old_url( $post_id, wp_make_link_relative( get_page_link( $post_id ) ) );
+                            }
                         }
-                    } else {
-                        if ( $spm_is_custom_url ) {
-                            $this->save_old_url( $post_id, wp_make_link_relative( get_page_link( $post_id ) ) );
-                        }
+
+                        update_post_meta( $post_id, 'spm_url', $spm_is_custom_url ? $post_name : '' );
                     }
-
-                    update_post_meta( $post_id, 'spm_url', $spm_is_custom_url ? $post_name : '' );
                     update_post_meta( $post_id, 'spm_show_in_menu', $spm_show_in_menu );
                     update_post_meta( $post_id, 'spm_page_title_seo', $spm_page_title_seo );
                     update_post_meta( $post_id, 'spm_header_visibility', $spm_header_visibility );
@@ -1016,7 +1033,9 @@ class SwiftyPageManager
             foreach ( $keys as $key ) {
                 $page = $pages[ $key ];
 
-                if( $this->is_swifty && apply_filters( 'swifty_is_theme_area_page', false, $page->guid ) ) {
+                // we now check for this page, when we have the need for blacklisting more pages we can
+                // create a filter for it
+                if( $this->is_swifty && ( 'ninja_forms_preview_page' === $page->post_title ) ) {
                     unset( $pages[ $key ] );
                 } else {
                     if( isset( $this->_by_page_id[ $page->ID ] ) ) {
