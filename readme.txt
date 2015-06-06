@@ -4,7 +4,7 @@ Donate link: http://swiftylife.com/plugins/donate/
 Tags: Swifty, page, pages, tree, menu, manage, hierarchy, structure
 Requires at least: 3.8
 Tested up to: 4.2.2
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -145,6 +145,9 @@ Try to describe the actions that lead up to the point where something is not wor
 Try it - it's free!
 
 == Changelog ==
+
+= 1.4.1 =
+ * A few small changes.
 
 = 1.4.0 =
  * Fixed important bug: 1.3.0 was not compatible with PHP older than 5.3. 1.4.0 is. Please update asap!
