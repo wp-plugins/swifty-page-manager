@@ -15,8 +15,8 @@ class LibSwiftyPluginView
     {
         self::$instance_view = $this;
 
-        // allow every plugin to get to the initialization part, all plugins should be loaded then
-        add_action( 'plugins_loaded', array( $this, 'action_plugins_loaded' ) );
+        // allow every plugin to get to the initialization part, all plugins and theme should be loaded then
+        add_action( 'after_setup_theme', array( $this, 'action_after_setup_theme' ) );
         add_filter( 'swifty_SS2_hosting_name', array( $this, 'filter_swifty_SS2_hosting_name' ) );
     }
 
@@ -51,10 +51,12 @@ class LibSwiftyPluginView
     }
 
     public static $required_plugin_active_swifty_site = false;
+    public static $required_theme_active_swifty_site_designer = false;
 
-    public function action_plugins_loaded()
+    public function action_after_setup_theme()
     {
-        self::$required_plugin_active_swifty_site = defined( 'SWIFTY_SITE_PLUGIN_URL' );
+        self::$required_plugin_active_swifty_site = defined( 'SWIFTY_MENU_PLUGIN_FILE' );
+        self::$required_theme_active_swifty_site_designer = defined( 'SWIFTY_SITE_DESIGNER_THEME_FILE' );
     }
 
     protected static $filter_swifty_SS2_hosting_name = null;
@@ -156,6 +158,15 @@ class LibSwiftyPluginView
 
         return $newer_revision;
     }
+
+    public static function lazy_load_css( $handle, $src = false, $deps = array(), $ver = false, $media = 'all' )
+    {
+        if( self::$required_theme_active_swifty_site_designer ) {
+            do_action( 'swifty_lazy_load_css', $handle, $src, $deps, $ver, $media );
+        } else {
+            wp_enqueue_style( $handle, $src, $deps, $ver, $media );
+        }
+    }
 }
 
 // load the swifty font, only load the latest version.
@@ -164,14 +175,21 @@ if(! function_exists( 'swifty_lib_view_enqueue_styles' ) ) {
     function swifty_lib_view_enqueue_styles()
     {
         if( is_user_logged_in() ) {
-            global $swifty_font_url;
-            global $swifty_font_version;
+            global $swifty_buildUse;
+
+            if( $swifty_buildUse == 'build' ) {
+                $swifty_font_url = get_swifty_lib_dir_url( __FILE__ ) . 'css/swifty-font.css';
+            } else {
+                $swifty_font_url = get_swifty_lib_dir_url( __FILE__ ) . 'lib/swifty_plugin/css/swifty-font.css';
+            }
+
+            $font_version = (int)'1432037392000';
 
             wp_enqueue_style(
                 'swifty-font.css',
                 $swifty_font_url,
                 array(),
-                $swifty_font_version,
+                $font_version,
                 'all'
             );
         }
@@ -182,30 +200,35 @@ if(! function_exists( 'swifty_lib_view_enqueue_styles' ) ) {
     add_action( 'admin_enqueue_scripts', 'swifty_lib_view_enqueue_styles' );
 }
 
-$font_version = (int)'1432037392000';
+if(! function_exists( 'get_swifty_lib_dir_url' ) ) {
 
-global $swifty_font_version;
-global $swifty_font_url;
-global $swifty_buildUse;
+    // returns the plugin or theme url depending on the $file that is used
+    // when the lib is used in a theme then the lib is located in the sub folder 'ssd', use this
+    // to detect that the $file is used in a theme and not in a plugin
+    function get_swifty_lib_dir_url( $file )
+    {
+        // we need to work around the plugin dir link we use in our development systems
+        $plugin_dir = dirname( dirname( dirname( dirname( $file ) ) ) );
+        // get plugin name
+        $plugin_basename = basename( $plugin_dir );
 
-if( !isset( $swifty_font_version ) || ( $swifty_font_version < $font_version ) ) {
-    $swifty_font_version = $font_version;
-
-    // we need to work around the plugin dir link we use in our development systems
-    $plugin_dir      = dirname( dirname( dirname( dirname( __FILE__ ) ) ) );
-    // get plugin name
-    $plugin_basename = basename( $plugin_dir );
-    $plugin_dir_url  = trailingslashit( plugins_url( rawurlencode( $plugin_basename ) ) );
-
-    if( $swifty_buildUse == 'build' ) {
-        // dorh Quick fix for wrong font location when used in SSD
-        if( file_exists( $plugin_dir_url . 'css/swifty-font.css' ) ) {
-            $swifty_font_url = $plugin_dir_url . 'css/swifty-font.css';
+        // make sure we do not use the theme sub-folder of 'ssd' as plugin name
+        if( $plugin_basename != 'ssd' ) {
+            // this is a plugin
+            $dir_url = trailingslashit( plugins_url( rawurlencode( $plugin_basename ) ) );
         } else {
-            $plugin_dir_url  = trailingslashit( plugins_url( rawurlencode( 'swifty-site' ) ) );
-            $swifty_font_url = $plugin_dir_url . 'css/swifty-font.css';
+            // this is a theme
+            global $swifty_buildUse;
+
+            // get theme name
+            $theme_basename = basename( dirname( $plugin_dir ) );
+            $dir_url = trailingslashit( get_template_directory_uri( rawurlencode( $theme_basename ) ) );
+
+            // on non builds we also need this 'ssd' sub folder
+            if( $swifty_buildUse != 'build' ) {
+                $dir_url = trailingslashit( $dir_url . 'ssd' );
+            }
         }
-    } else {
-        $swifty_font_url = $plugin_dir_url . 'lib/swifty_plugin/css/swifty-font.css';
+        return $dir_url;
     }
 }
