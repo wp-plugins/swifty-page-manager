@@ -1,12 +1,37 @@
 <?php
 
 if( ! function_exists( 'swifty_autoload_lib_helper' ) ) {
-    function swifty_autoload_lib_helper_main( $file_path ) {
+
+    // turns out that glob is not always working:
+    // http://php.net/manual/en/function.glob.php#102691
+    // so we use a replacement
+    function swifty_glob( $pattern )
+    {
+        $split = explode( '/', str_replace( '\\', '/', $pattern ) );
+        $mask = array_pop( $split );
+        $path = implode( '/', $split );
+        if( ( $dir = opendir( $path ) ) !== false ) {
+            $glob = array();
+            while( ( $file = readdir( $dir ) ) !== false ) {
+                // Match file mask
+                if( fnmatch( $mask, $file ) && is_dir( "$path/$file" ) ) {
+                    $glob[ ] = "$path/$file/";
+                }
+            }
+            closedir( $dir );
+            return $glob;
+        } else {
+            return false;
+        }
+    }
+
+    function swifty_autoload_lib_helper_main( $file_path )
+    {
         $best_version = -1;
         $best_dir = '';
-        $directories = glob( WP_PLUGIN_DIR . '/swifty*', GLOB_ONLYDIR );
+        $directories = swifty_glob( WP_PLUGIN_DIR . '/swifty*' );
         swifty_autoload_lib_helper( $directories, '/lib/swifty_plugin', $best_version, $best_dir );
-        $directories = glob( get_theme_root() . '/swifty*', GLOB_ONLYDIR );
+        $directories = swifty_glob( get_theme_root() . '/swifty*' );
         swifty_autoload_lib_helper( $directories, '/ssd/lib/swifty_plugin', $best_version, $best_dir );
 //            echo 'BEST... #####' . $best_dir . '#####' . $best_version . '<br>';
         if( $best_dir !== '' ) {
@@ -14,18 +39,21 @@ if( ! function_exists( 'swifty_autoload_lib_helper' ) ) {
         }
     }
 
-    function swifty_autoload_lib_helper( $directories, $version_path, &$best_version, &$best_dir ) {
-        foreach( $directories as $dir ) {
-            $file = $dir . $version_path . '/swifty_version.txt';
-            $version = -1;
-            if( file_exists( $file ) ) {
-                $version = intval( file_get_contents( $file ) );
-            }
-//            echo '#####' . $dir . '#####' . $version . '<br>';
-            if( $version > $best_version || ( $version === $best_version && basename( $dir ) === 'swifty-site' ) ) {
-                $best_version = $version;
-                $best_dir = $dir . $version_path;
-//                echo 'BETTER #####' . $dir . '#####' . $version . '<br>';
+    function swifty_autoload_lib_helper( $directories, $version_path, &$best_version, &$best_dir )
+    {
+        if( is_array( $directories ) ) {
+            foreach( $directories as $dir ) {
+                $file = $dir . $version_path . '/swifty_version.txt';
+                $version = -1;
+                if( file_exists( $file ) ) {
+                    $version = intval( file_get_contents( $file ) );
+                }
+//                echo '#####' . $dir . '#####' . $version . '<br>';
+                if( $version > $best_version || ( $version === $best_version && basename( $dir ) === 'swifty-site' ) ) {
+                    $best_version = $version;
+                    $best_dir = $dir . $version_path;
+//                    echo 'BETTER #####' . $dir . '#####' . $version . '<br>';
+                }
             }
         }
     }

@@ -159,6 +159,27 @@ class LibSwiftyPluginView
         return $newer_revision;
     }
 
+    public static function lazy_load_js( $handle, $src = false, $deps = array(), $ver = false, $in_footer = false )
+    {
+        if( self::$required_theme_active_swifty_site_designer ) {
+            do_action( 'swifty_lazy_load_js', $handle, $src, $deps, $ver, $in_footer );
+        } else {
+            wp_enqueue_script( $handle, $src, $deps, $ver, $in_footer );
+        }
+    }
+
+    public static function lazy_load_js_min( $handle, $src = false, $deps = array(), $ver = false, $in_footer = false )
+    {
+        global $swifty_buildUse;
+        $bust_add = '?swcv=ss2_' . '1.4.4';
+        $file = $src;
+        if( $swifty_buildUse == 'build' ) {
+            $file = preg_replace( '|\.js$|', '.min.js', $file );
+        }
+        $file .= $bust_add;
+        self::lazy_load_js( $handle, $file, $deps, $ver, $in_footer );
+    }
+
     public static function lazy_load_css( $handle, $src = false, $deps = array(), $ver = false, $media = 'all' )
     {
         if( self::$required_theme_active_swifty_site_designer ) {
