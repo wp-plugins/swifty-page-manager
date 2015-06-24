@@ -312,6 +312,8 @@ if ( ! class_exists( 'Swifty_TGM_Plugin_Activation' ) ) {
                     wp_cache_flush();
                 }
             }
+            // WZs92O5u
+            //$this->force_activation();
         }
 
         /**
@@ -1030,6 +1032,9 @@ if ( ! class_exists( 'Swifty_TGM_Plugin_Activation' ) ) {
                 // There we go, activate the plugin.
                 elseif ( isset( $plugin['force_activation'] ) && $plugin['force_activation'] && is_plugin_inactive( $plugin['file_path'] ) ) {
                     activate_plugin( $plugin['file_path'] );
+
+                    // WZs92O5u
+                    //do_action( 'after_force_activation_' . $plugin['slug'] );
                 }
             }
 
