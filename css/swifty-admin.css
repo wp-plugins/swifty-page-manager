@@ -10,6 +10,11 @@
 .swifty_content_right {
   margin-left: 80px;
 }
+.swifty_panel_title_container {
+  position: relative;
+  padding-bottom: 10px;
+  margin-top: -10px;
+}
 .swifty_panel_title_container .swifty_panel_title_strike {
   height: 24px;
   border-bottom: 2px solid #e2e2e2;
@@ -31,7 +36,7 @@
   display: inline-block;
   height: 32px;
   padding: 0 8px;
-  background-color: #eeeeee;
+  background-color: #f1f1f1;
 }
 .swifty_panel_title_container .swifty_panel_title_pos .swifty_title h2 {
   color: #1b7fba;
