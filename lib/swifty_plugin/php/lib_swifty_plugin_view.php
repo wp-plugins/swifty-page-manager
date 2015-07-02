@@ -171,7 +171,7 @@ class LibSwiftyPluginView
     public static function lazy_load_js_min( $handle, $src = false, $deps = array(), $ver = false, $in_footer = false )
     {
         global $swifty_buildUse;
-        $bust_add = '?swcv=ss2_' . '1.4.5';
+        $bust_add = '?swcv=ss2_' . '1.4.6';
         $file = $src;
         if( $swifty_buildUse == 'build' ) {
             $file = preg_replace( '|\.js$|', '.min.js', $file );
